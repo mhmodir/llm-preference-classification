@@ -15,6 +15,7 @@ The task: given a prompt and two anonymous LLM responses, predict which response
 ├── llm-classification-finetuning-deberta.ipynb   # DeBERTa-v3-xs experiment
 ├── llm-classification-finetuning-roberta.ipynb   # RoBERTa-base experiment
 ├── llm-classification-finetuning-electra.ipynb   # ELECTRA-large experiment
+├── figs/                                         # Architecture diagrams
 ├── report.pdf                                    # Full write-up
 └── README.md
 ```
@@ -44,20 +45,11 @@ The competition releases preference judgements from [Chatbot Arena](https://chat
 
 The same pretrained encoder, with the **same weights**, processes both (prompt, response) pairs. The two embedding sequences are pooled to vectors `a` and `b`, then fused with their difference and element-wise product before classification.
 
-```mermaid
-flowchart TD
-    A["(prompt, response_a)"] --> EncA["Pretrained Encoder<br/>(shared weights)"]
-    B["(prompt, response_b)"] --> EncB["Pretrained Encoder<br/>(shared weights)"]
-    EncA -. shared weights .-> EncB
-    EncA --> PoolA[Masked Mean Pool]
-    EncB --> PoolB[Masked Mean Pool]
-    PoolA --> Fuse["Fusion: [a; b; a-b; a⊙b]"]
-    PoolB --> Fuse
-    Fuse --> Head["Dropout → Dense (GELU) → Dropout"]
-    Head --> Out["Softmax: P(A wins), P(B wins), P(tie)"]
-```
+<p align="center">
+  <img src="figs/fig_siamese.png" alt="Siamese architecture" width="560"/>
+</p>
 
-**Why Siamese.** Both inputs are objects of the same type (a prompt-response pair), so weight sharing forces them through the same representational lens and lets `a - b` and `a ⊙ b` carry meaningful comparison signal. The fusion `[a; b; a-b; a⊙b]` is the standard recipe from the InferSent / sentence-BERT line of work — concatenation alone leaves the head to learn the comparison from scratch.
+**Why Siamese.** Both inputs are objects of the same type (a prompt-response pair), so weight sharing forces them through the same representational lens and lets `a − b` and `a ⊙ b` carry meaningful comparison signal. The fusion `[a; b; a−b; a⊙b]` is the standard recipe from the InferSent / sentence-BERT line of work — concatenation alone leaves the head to learn the comparison from scratch.
 
 **Training (all three models).** AdamW, weight decay 0.01, categorical cross-entropy with label smoothing (ε = 0.1), early stopping on validation loss, LR reduction on plateau, up to 10 epochs.
 
@@ -65,7 +57,13 @@ flowchart TD
 
 ## Backbones compared
 
-All three backbones are stacks of standard transformer encoder blocks. They differ in size, in *how* attention is computed (DeBERTa), and in *how* they were pretrained (ELECTRA).
+All three backbones are stacks of standard transformer encoder blocks and share the same high-level shape — token embeddings, then $N$ transformer blocks, then contextual outputs:
+
+<p align="center">
+  <img src="figs/fig_transformer.png" alt="Shared transformer skeleton" width="600"/>
+</p>
+
+They differ in size, in *how* attention is computed (DeBERTa), and in *how* they were pretrained (ELECTRA).
 
 ### Architectural specs
 
@@ -90,24 +88,21 @@ All three backbones are stacks of standard transformer encoder blocks. They diff
 
 **RoBERTa-base.** Standard BERT-style architecture. Content and position embeddings are summed at the input layer, and attention operates on the combined vector — one attention term, one source.
 
+<p align="center">
+  <img src="figs/fig_roberta.png" alt="RoBERTa standard attention" width="380"/>
+</p>
+
 **DeBERTa-v3-xs.** *Disentangled attention*: content and relative-position embeddings are kept separate, and the attention score between two tokens is the sum of **three** components — content↔content, content↔position, and position↔content. Position↔position is omitted. This gives the model a cleaner signal about token positions and is the main reason DeBERTa punches above its weight at a given parameter count.
 
-**ELECTRA-large.** Architecturally identical to BERT at the block level. The distinguishing feature is its *pretraining scheme*:
+<p align="center">
+  <img src="figs/fig_deberta.png" alt="DeBERTa disentangled attention" width="520"/>
+</p>
 
-```
-[original]  the chef cooked the meal
-              │
-              ▼  (mask 15%)
-[masked]    the [MASK] cooked the meal
-              │
-              ▼  (small generator predicts replacements)
-[corrupted] the cook cooked the meal
-              │
-              ▼  (large discriminator labels each token)
-[labels]    orig | orig | REPLACED | orig | orig
-```
+**ELECTRA-large.** Architecturally identical to BERT at the block level. The distinguishing feature is its *pretraining scheme*: a small generator proposes replacements for masked tokens, and a larger discriminator is trained to identify which tokens were replaced. Applying the loss to *every* token (rather than just the 15% masked ones, as in MLM) is the source of ELECTRA's well-known sample efficiency. After pretraining the generator is discarded; only the discriminator is used for fine-tuning.
 
-After pretraining the generator is discarded; only the discriminator is used for fine-tuning. Applying the loss to *every* token (rather than just the 15% masked ones, as in MLM) is the source of ELECTRA's well-known sample efficiency.
+<p align="center">
+  <img src="figs/fig_electra.png" alt="ELECTRA replaced-token-detection pretraining" width="600"/>
+</p>
 
 ---
 
@@ -182,4 +177,4 @@ A classic cold-start problem for large pretrained transformers: with a randomly 
 - Bromley, Guyon, LeCun et al. — Signature Verification using a "Siamese" Time Delay Neural Network, NeurIPS 1993
 - Conneau et al. — [Supervised Learning of Universal Sentence Representations from Natural Language Inference Data](https://arxiv.org/abs/1705.02364), EMNLP 2017
 
-See [`report.pdf`](report.pdf) for the full write-up with architecture diagrams and discussion.
+See [`report.pdf`](report.pdf) for the full write-up with discussion.
