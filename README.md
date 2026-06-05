@@ -1,5 +1,5 @@
 # llm-preference-classification
-Fine-tuning and comparing DeBERTa-v3, RoBERTa, and ELECTRA on the Chatbot Arena human-preference task with a shared Siamese architecture.
+Fine-tuning and comparing DeBERTa-v3, RoBERTa, and ELECTRA on the Chatbot Arena human-preference task with the shared Siamese architecture.
 # Predicting Human Preferences in LLM Responses
 
 A comparative study of three pretrained transformer encoders — **DeBERTa-v3-xs**, **RoBERTa-base**, and **ELECTRA-large** — fine-tuned with a shared Siamese architecture on the Kaggle [*LLM Classification Finetuning*](https://www.kaggle.com/competitions/llm-classification-finetuning) competition.
