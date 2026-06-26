@@ -159,7 +159,7 @@ A classic cold-start problem for large pretrained transformers: with a randomly 
 
 ---
 
-## Future work
+## Future works
 
 - **Cross-encoder formulation.** Concatenate prompt and both responses into one sequence and let self-attention compare them directly during encoding. Stronger inductive bias than Siamese for preference tasks.
 - **Longer sequence length** (384–512 tokens) to capture more of each response.
